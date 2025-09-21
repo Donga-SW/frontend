@@ -80,7 +80,8 @@ npm install next react react-dom --legacy-peer-deps <br>
 npm install sigma graphology --legacy-peer-deps <br>
 npm install graphology-serialization --legacy-peer-deps<br>
 npm install -D @types/react @types/react-dom --legacy-peer-deps
-<br>[read to requirements.txt](https://github.com/Donga-SW/frontend/blob/f60e1abe8a1d8cb0c9e554f25ea6aa347ccb7609/requirements.txt)
+<br>[read to path requirements.txt](https://github.com/Donga-SW/frontend/blob/f60e1abe8a1d8cb0c9e554f25ea6aa347ccb7609/requirements.txt)
+
 
 
 
