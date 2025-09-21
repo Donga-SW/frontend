@@ -13,7 +13,7 @@ HiddenNode는 일제강점기 **판결문 속 인물·사건·장소 정보를 �
 - STI(Semantic Table Interpretation)를 활용한 의미 관계 추출
 - 시각적 탐색이 가능한 UI 구성
 - 독립운동사 데이터 기반 지식그래프 탐색
-
+- 번역기능을 활용한 다국적언어 지원원
 ---
 
 ## 🖼️ 메인 화면 구성
@@ -80,4 +80,6 @@ npm install next react react-dom --legacy-peer-deps <br>
 npm install sigma graphology --legacy-peer-deps <br>
 npm install graphology-serialization --legacy-peer-deps<br>
 npm install -D @types/react @types/react-dom --legacy-peer-deps
+read to requirements.txt
+
 
