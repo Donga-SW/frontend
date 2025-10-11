@@ -1,4 +1,4 @@
-# HiddenNode 프로젝트
+# HiddenNode 프로젝트.
 
 > **잊힌 이름, 숨겨진 기록**  
 > 판결문 기반 독립운동 인물·사건의 시각화 플랫폼
@@ -81,6 +81,7 @@ npm install sigma graphology --legacy-peer-deps <br>
 npm install graphology-serialization --legacy-peer-deps<br>
 npm install -D @types/react @types/react-dom --legacy-peer-deps
 <br>[read to path requirements.txt](https://github.com/Donga-SW/frontend/blob/f60e1abe8a1d8cb0c9e554f25ea6aa347ccb7609/requirements.txt)
+
 
 
 
