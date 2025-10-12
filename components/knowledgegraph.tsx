@@ -31,10 +31,20 @@ export default function KnowledgeGraph() {
     { name: '기타(Other)', file: '기타.json' }
   ];
 
+  // 노드 선택 드롭다운 상태 - 단일 선택
+  const [availableNodes, setAvailableNodes] = useState<Array<{id: string, label: string, type: string}>>([]);
+  const [currentSelection, setCurrentSelection] = useState<{type: string, id: string, label: string} | null>(null);
+  
+
   useEffect(() => {
     const loadData = async () => {
       setIsLoading(true);
       setError(null);
+      
+      // 데이터셋 변경 시 모든 선택 상태 초기화
+      setSelectedNode(undefined);
+      setCurrentSelection(null);
+      setSidebarOpen(false);
       
       try {
         const response = await fetch(`/data/${activeDataset}`);
@@ -47,6 +57,14 @@ export default function KnowledgeGraph() {
         await new Promise(resolve => setTimeout(resolve, 1000));
         
         setGraphData(json);
+        
+        // 사용 가능한 노드들 추출
+        const nodes = json.nodes?.map((node: any) => ({
+          id: node.key || node.id,
+          label: node.attributes?.label || node.label || node.key || node.id,
+          type: node.attributes?.type || '기타'
+        })) || [];
+        setAvailableNodes(nodes);
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : '데이터 로딩 중 오류가 발생했습니다';
         setError(errorMessage);
@@ -63,25 +81,123 @@ export default function KnowledgeGraph() {
     setSidebarOpen(!sidebarOpen)
   }
 
-  // 노드 및 이웃 정보 추출
+  // 선택된 노드와 직접 연결된 노드들만 가져오기 (1단계만)
+  const getDirectlyConnectedNodes = (nodeId: string): Set<string> => {
+    const connected = new Set<string>();
+    if (!graphData || !graphData.edges) return connected;
+    
+    graphData.edges.forEach((edge: any) => {
+      if (edge.source === nodeId) {
+        connected.add(edge.target);
+      }
+      if (edge.target === nodeId) {
+        connected.add(edge.source);
+      }
+    });
+    
+    return connected;
+  };
+
+  // 노드 타입별로 그룹화 (필터링 적용)
+  const getNodesByType = (type: string) => {
+    return availableNodes.filter(node => node.type === type);
+  };
+
+  // 선택된 노드와 직접 연결된 노드들만 가져오기
+  const getFilteredNodesByType = (type: string) => {
+    let filteredNodes = availableNodes.filter(n => n.type === type);
+    
+    // 선택된 노드가 없으면 모든 노드 반환
+    if (!currentSelection) {
+      return filteredNodes;
+    }
+    
+    // 선택된 노드와 직접 연결된 노드들
+    const connectedNodeIds = getDirectlyConnectedNodes(currentSelection.id);
+    
+    // 해당 타입이면서 연결된 노드들만 필터링
+    filteredNodes = filteredNodes.filter(node => {
+      // 이미 선택된 노드면 포함
+      if (node.id === currentSelection.id) {
+        return true;
+      }
+      // 직접 연결된 노드만 포함
+      return connectedNodeIds.has(node.id);
+    });
+    
+    return filteredNodes;
+  };
+
+  // 드롭다운에서 노드 선택 시 처리 (단일 선택)
+  const handleNodeSelect = (type: string, nodeId: string, label: string) => {
+    if (!nodeId) {
+      // 빈 값 선택 시 선택 해제
+      setCurrentSelection(null);
+      setSelectedNode(undefined);
+      return;
+    }
+    
+    // 새로운 노드 선택 (이전 선택 자동 초기화)
+    setCurrentSelection({ type, id: nodeId, label });
+    setSelectedNode(nodeId);
+    setSidebarOpen(true);
+  };
+
+  // 마우스 클릭으로 노드 선택 시 드롭다운 동기화
+  const handleNodeSelectFromGraph = (nodeId: string | undefined) => {
+    if (!nodeId) return;
+    
+    setSelectedNode(nodeId);
+    setSidebarOpen(true);
+    
+    // 선택된 노드의 타입 찾기
+    const selectedNodeData = availableNodes.find(node => node.id === nodeId);
+    if (selectedNodeData) {
+      // 새로운 노드로 교체
+      setCurrentSelection({
+        type: selectedNodeData.type,
+        id: nodeId,
+        label: selectedNodeData.label
+      });
+    }
+  };
+
+  // 초기화 함수
+  const handleReset = () => {
+    setSelectedNode(undefined);
+    setCurrentSelection(null);
+    
+    // 검색창도 초기화
+    if (searchInputRef.current) {
+      searchInputRef.current.value = "";
+    }
+  };
+
+  // 노드 선택 해제 함수
+  const handleClearSelection = () => {
+    setSelectedNode(undefined);
+    setCurrentSelection(null);
+    
+    // 검색창 초기화는 graph.tsx의 useEffect에서 자동으로 처리됨
+  };
+
+  // 노드 및 이웃 정보 추출 (단일 선택)
   let nodeInfo: any = null
   let neighborInfos: any[] = []
+  
   if (graphData && selectedNode) {
     const nodeMap = new Map(
       graphData.nodes.map((n: any) => [n.key, n.attributes])
     )
+    
     nodeInfo = nodeMap.get(selectedNode)
-    // 이웃 찾기 (양방향)
-    const neighbors = new Set<string>()
-    if (graphData.edges) {
-      graphData.edges.forEach((e: any) => {
-        if (e.source === selectedNode) neighbors.add(e.target)
-        if (e.target === selectedNode) neighbors.add(e.source)
-      })
-    }
+    
+    // 선택된 노드와 직접 연결된 이웃 찾기 (양방향)
+    const neighbors = getDirectlyConnectedNodes(selectedNode);
+    
     neighborInfos = Array.from(neighbors)
       .map((k) => nodeMap.get(k))
-      .filter(Boolean)
+      .filter(Boolean);
   }
 
   // 주요 label 매핑
@@ -230,31 +346,11 @@ export default function KnowledgeGraph() {
 
   const sidebarRef = useRef<HTMLDivElement>(null);
 
-  // 외부 클릭 시 노드 선택 해제, 검색창 드롭다운이 열려있으면(X버튼 누르기 전까지) 초기화하지 않음
+  // 검색창 관련 상태
   const searchInputRef = useRef<HTMLInputElement>(null);
   const [searchActive, setSearchActive] = useState(false);
 
-  useEffect(() => {
-    function handlePointerDown(e: PointerEvent) {
-      // 검색창이 활성화되어 있으면(X버튼 누르기 전까지) 초기화하지 않음
-      if (searchActive) return;
-      // 사이드바가 열려있고, 사이드바 내부 클릭/드래그/텍스트 선택이면 무시
-      if (sidebarOpen && sidebarRef.current && sidebarRef.current.contains(e.target as Node)) {
-        return;
-      }
-      // 사이드바가 닫혀있을 때는 무조건 초기화
-      if (!sidebarOpen) {
-        setSelectedNode(undefined);
-        return;
-      }
-      // 사이드바가 열려있고, 클릭한 곳이 사이드바가 아니면 초기화
-      if (sidebarOpen && !(sidebarRef.current && sidebarRef.current.contains(e.target as Node))) {
-        setSelectedNode(undefined);
-      }
-    }
-    document.addEventListener("pointerdown", handlePointerDown, true);
-    return () => document.removeEventListener("pointerdown", handlePointerDown, true);
-  }, [sidebarOpen, searchActive]);
+  // 배경 클릭 시 선택 해제 기능 제거 - 선택 해제 버튼으로만 해제 가능
 
   // 검색창 포커스/블러/X버튼 처리
   // GraphComponent에 searchInputRef, setSearchActive prop 전달 필요
@@ -293,8 +389,8 @@ export default function KnowledgeGraph() {
 
   return (
     <div className="flex w-full h-full bg-gray-100">
-      <div className="flex flex-col flex-1">
-        <div className="flex-1 relative overflow-hidden">
+      <div className="flex flex-col flex-1 h-full">
+        <div className="flex-1 relative overflow-hidden h-full">
           <div className="w-full h-full relative bg-gray-100">
             {/* Floating Buttons (상단 좌측) */}
             <div
@@ -335,12 +431,14 @@ export default function KnowledgeGraph() {
                 </div>
               ) : (
                 <GraphComponent 
-                  onSelectNode={setSelectedNode} 
+                  onSelectNode={handleNodeSelectFromGraph} 
                   selectedFile={activeDataset}
                   searchInputRef={searchInputRef}
                   setSearchActive={setSearchActive}
                   dropdownOpen={dropdownOpen}
                   setDropdownOpen={setDropdownOpen}
+                  selectedNode={selectedNode}
+                  onClearSelection={handleClearSelection}
                 />
               )}
             </div>
@@ -353,9 +451,79 @@ export default function KnowledgeGraph() {
               sidebarOpen ? "translate-x-0" : "-translate-x-full"
             }`}
           >
+            {/* 노드 선택 드롭다운 섹션 */}
+            <div className="p-4 border-b bg-gray-100">
+              <div className="flex justify-between items-center mb-3">
+                <h2 className="text-lg text-black font-bold">노드 탐색</h2>
+                <button
+                  onClick={handleReset}
+                  className="px-3 py-1 text-xs bg-gray-500 text-white rounded hover:bg-gray-600 transition-colors"
+                >
+                  초기화
+                </button>
+              </div>
+              
+              {/* 노드 타입별 드롭다운 */}
+              {['주소', '연도', '인물', '사건', '죄명'].map(type => {
+                const filteredNodes = getFilteredNodesByType(type);
+                const totalNodes = getNodesByType(type).length;
+                
+                if (totalNodes === 0) return null;
+                
+                return (
+                  <div key={type} className="mb-3">
+                    <label className="block text-sm font-medium text-black mb-1">
+                      {type} {filteredNodes.length < totalNodes ? (
+                        <span>
+                          (<span className="text-blue-600">{filteredNodes.length}</span>/{totalNodes}개)
+                        </span>
+                      ) : (
+                        <span>({totalNodes}개)</span>
+                      )}
+                    </label>
+                    <select 
+                      className="w-full p-2 border border-gray-300 rounded text-sm bg-white text-black"
+                      value={currentSelection?.type === type ? currentSelection.id : ""}
+                      onChange={(e) => {
+                        const nodeId = e.target.value;
+                        const node = filteredNodes.find(n => n.id === nodeId);
+                        if (node) {
+                          handleNodeSelect(type, nodeId, node.label);
+                        } else {
+                          handleNodeSelect(type, "", "");
+                        }
+                      }}
+                    >
+                      <option value="">{type} 선택...</option>
+                      {filteredNodes.map(node => (
+                        <option key={node.id} value={node.id}>
+                          {node.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                );
+              })}
+            </div>
+
             <div className="p-4 border-b">
+              {/* 선택된 노드 표시 */}
+              {currentSelection && (
+                <div className="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                  <h2 className="text-sm font-bold text-blue-900 mb-2">
+                    선택된 노드
+                  </h2>
+                  <div className="flex items-center gap-2">
+                    <span className="px-3 py-1 bg-blue-600 text-white text-sm rounded-full">
+                      {currentSelection.type}: {currentSelection.label}
+                    </span>
+                  </div>
+                </div>
+              )}
+              
               <h1 className="text-xl text-black font-bold">노드 정보</h1>
-              {/* e로 시작하는 key면 개요로, 아니면 기존대로 */}
+              
+              {/* 노드 정보 표시 */}
               {selectedNode && selectedNode.startsWith('e') && nodeInfo && nodeInfo['개요'] ? (
                 <div className="text-black whitespace-pre-line">{nodeInfo['개요']}</div>
               ) : (
