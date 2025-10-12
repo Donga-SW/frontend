@@ -21,6 +21,7 @@ interface TranslationContextType {
   setLanguage: (language: Language) => void
   translate: (key: string) => string
   isLoading: boolean
+  error: string | null
 }
 
 // 기본 번역 텍스트 (정적 텍스트들)
@@ -799,6 +800,7 @@ const TranslationContext = createContext<TranslationContextType | undefined>(und
 export function TranslationProvider({ children }: { children: ReactNode }) {
   const [currentLanguage, setCurrentLanguage] = useState<Language>('ko')
   const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const [translationCache, setTranslationCache] = useState<TranslationTexts>(defaultTexts)
 
   // 로컬 스토리지에서 언어 설정 로드
@@ -814,6 +816,7 @@ export function TranslationProvider({ children }: { children: ReactNode }) {
     if (language === currentLanguage) return
 
     setIsLoading(true)
+    setError(null)
     try {
       setCurrentLanguage(language)
       localStorage.setItem('selectedLanguage', language)
@@ -822,6 +825,8 @@ export function TranslationProvider({ children }: { children: ReactNode }) {
       // 현재는 정적 번역만 사용
       
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : '언어 변경 중 오류가 발생했습니다'
+      setError(errorMessage)
       console.error('Language change error:', error)
     } finally {
       setIsLoading(false)
@@ -843,7 +848,8 @@ export function TranslationProvider({ children }: { children: ReactNode }) {
     currentLanguage,
     setLanguage,
     translate,
-    isLoading
+    isLoading,
+    error
   }
 
   return (

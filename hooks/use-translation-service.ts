@@ -43,6 +43,10 @@ export function useTranslationService(): UseTranslationServiceReturn {
       }
 
       const data: TranslationResponse = await response.json()
+      
+      // 로딩 상태를 더 잘 보여주기 위해 최소 0.5초 지연
+      await new Promise(resolve => setTimeout(resolve, 500))
+      
       return data.translatedText
 
     } catch (error) {

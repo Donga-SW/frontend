@@ -4,6 +4,8 @@ import { useState, useEffect, useRef } from "react"
 import { ChevronRight, X, Clock, ChevronDown, Bookmark } from "lucide-react"
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
+import { LoadingCard, LoadingSpinner } from "@/components/ui/loading"
+import { ErrorCard, ErrorMessage } from "@/components/ui/error"
 import GraphComponent from "@/components/graph"
 
 export default function KnowledgeGraph() {
@@ -11,7 +13,9 @@ export default function KnowledgeGraph() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [selectedNode, setSelectedNode] = useState<string | undefined>(undefined)
   const [graphData, setGraphData] = useState<any>(null)
-  const [wikidataDesc, setWikidataDesc] = useState<string | null>(null);  // 정인 wikidata 불러오기 추가
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
   // 데이터셋 버튼 핸들러 (각 버튼마다 파일명 코드에서 지정)
   const [activeDataset, setActiveDataset] = useState('전체.json');
   const datasetFiles = [
@@ -28,9 +32,31 @@ export default function KnowledgeGraph() {
   ];
 
   useEffect(() => {
-    fetch(`/data/${activeDataset}`)
-      .then((res) => res.json())
-      .then((json) => setGraphData(json));
+    const loadData = async () => {
+      setIsLoading(true);
+      setError(null);
+      
+      try {
+        const response = await fetch(`/data/${activeDataset}`);
+        if (!response.ok) {
+          throw new Error(`데이터를 불러올 수 없습니다: ${response.status}`);
+        }
+        const json = await response.json();
+        
+        // 로딩 상태를 더 잘 보여주기 위해 최소 1초 지연
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        setGraphData(json);
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : '데이터 로딩 중 오류가 발생했습니다';
+        setError(errorMessage);
+        console.error('Data loading error:', err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadData();
   }, [activeDataset]);
 
   const toggleSidebar = () => {
@@ -57,24 +83,6 @@ export default function KnowledgeGraph() {
       .map((k) => nodeMap.get(k))
       .filter(Boolean)
   }
-  //  정인 wikidata 불러오기 추가
-  useEffect(() => {
-    if (!nodeInfo || !nodeInfo.uri || !nodeInfo.uri.startsWith("https://www.wikidata.org/wiki/")) {
-      setWikidataDesc(null);
-      return;
-    }
-    const qid = nodeInfo.uri.split("/").pop();
-    fetch(`https://www.wikidata.org/wiki/Special:EntityData/${qid}.json`)
-      .then(res => res.json())
-      .then(data => {
-        const desc = data.entities?.[qid]?.descriptions?.ko?.value
-                  || data.entities?.[qid]?.descriptions?.en?.value
-                  || null;
-        setWikidataDesc(desc);
-      })
-      .catch(() => setWikidataDesc(null));
-  }, [nodeInfo]);
-  // 여기까지가 정인 추가
 
   // 주요 label 매핑
   const LABEL_MAP: Record<string, string> = {
@@ -145,32 +153,25 @@ export default function KnowledgeGraph() {
       </div>
     ));
   }
-  function renderFixedInfo(attr: any) {  // 정인 수정 
+  function renderFixedInfo(attr: any) {
     if (!attr) return null;
     return (
       <div className="space-y-1">
         {FIXED_LABELS.map(({ label, keys }) => {
           const value = keys.map(k => attr[k]).find(v => !!v);
           return (
-            <div key={label} className="flex flex-col text-black">
+            <div key={label} className="flex justify-between text-black">
               <span className="font-medium">{label}</span>
               <span className="ml-2">
-                {label === 'URI' && value ? (
-                  <div className="space-y-1">
-                    <a
-                      href={value}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-blue-600 underline break-all"
-                    >
-                      {value}
-                    </a>
-                    {wikidataDesc && (
-                      <p className="text-sm text-gray-700 whitespace-pre-wrap mt-1">
-                        설명: {wikidataDesc}
-                      </p>
-                    )}
-                  </div>
+                {label === 'URI' && value ? (   // URI a태그 달았음 수정5
+                  <a
+                    href={value}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-600 underline break-all"
+                  >
+                    {value}
+                  </a>
                 ) : (
                   value || <span className="text-gray-400">정보 없음</span>
                 )}
@@ -180,8 +181,7 @@ export default function KnowledgeGraph() {
         })}
       </div>
     );
-  } // 여기까지가 정인 수정
-
+  }
   // 관계 정보(이웃 노드)에서 이름만 보이게 렌더링
   function renderNeighborInfo(neighborInfos: any[]) {
     if (!neighborInfos || neighborInfos.length === 0) return null;
@@ -262,6 +262,35 @@ export default function KnowledgeGraph() {
   // 드롭다운 방향 상태
   const [dropdownOpen, setDropdownOpen] = useState(false);
 
+  // 데이터 재로딩 함수
+  const handleRetry = () => {
+    const loadData = async () => {
+      setIsLoading(true);
+      setError(null);
+      
+      try {
+        const response = await fetch(`/data/${activeDataset}`);
+        if (!response.ok) {
+          throw new Error(`데이터를 불러올 수 없습니다: ${response.status}`);
+        }
+        const json = await response.json();
+        
+        // 로딩 상태를 더 잘 보여주기 위해 최소 1초 지연
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        setGraphData(json);
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : '데이터 로딩 중 오류가 발생했습니다';
+        setError(errorMessage);
+        console.error('Data loading error:', err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadData();
+  };
+
   return (
     <div className="flex w-full h-full bg-gray-100">
       <div className="flex flex-col flex-1">
@@ -280,22 +309,40 @@ export default function KnowledgeGraph() {
                   size="sm"
                   className={`bg-white text-black shadow-md border ${activeDataset === btn.file ? 'border-blue-500 font-bold' : 'border-gray-200'}`}
                   onClick={() => setActiveDataset(btn.file)}
+                  disabled={isLoading}
                 >
+                  {isLoading && activeDataset === btn.file ? (
+                    <LoadingSpinner size="sm" className="mr-2" />
+                  ) : null}
                   {btn.name}
                 </Button>
               ))}
             </div>
 
-            {/* 메인 이미지 */}
-            <div className="w-full h-full">
-              <GraphComponent 
-                onSelectNode={setSelectedNode} 
-                selectedFile={activeDataset}
-                searchInputRef={searchInputRef}
-                setSearchActive={setSearchActive}
-                dropdownOpen={dropdownOpen}
-                setDropdownOpen={setDropdownOpen}
-              />
+            {/* 메인 콘텐츠 */}
+            <div className="w-full h-full bg-black">
+              {isLoading ? (
+                <div className="flex items-center justify-center h-full bg-black">
+                  <LoadingCard message="데이터를 불러오는 중..." />
+                </div>
+              ) : error ? (
+                <div className="flex items-center justify-center h-full bg-black">
+                  <ErrorCard
+                    title="데이터 로딩 실패"
+                    message={error}
+                    onRetry={handleRetry}
+                  />
+                </div>
+              ) : (
+                <GraphComponent 
+                  onSelectNode={setSelectedNode} 
+                  selectedFile={activeDataset}
+                  searchInputRef={searchInputRef}
+                  setSearchActive={setSearchActive}
+                  dropdownOpen={dropdownOpen}
+                  setDropdownOpen={setDropdownOpen}
+                />
+              )}
             </div>
           </div>
 

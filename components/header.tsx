@@ -4,9 +4,10 @@ import Link from "next/link"
 import Image from "next/image"
 import { useTranslation } from "@/contexts/TranslationContext"
 import LanguageDropdown from "@/components/LanguageDropdown"
+import { LoadingSpinner } from "@/components/ui/loading"
 
 export default function Header() {
-  const { translate } = useTranslation()
+  const { translate, isLoading } = useTranslation()
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-black text-white backdrop-blur supports-[backdrop-filter]:bg-black/75">
@@ -54,7 +55,8 @@ export default function Header() {
         </div>
         
         {/* 언어 선택 드롭다운 */}
-        <div className="ml-auto">
+        <div className="ml-auto flex items-center space-x-2">
+          {isLoading && <LoadingSpinner size="sm" />}
           <LanguageDropdown />
         </div>
       </div>
