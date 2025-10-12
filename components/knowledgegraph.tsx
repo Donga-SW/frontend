@@ -11,7 +11,7 @@ export default function KnowledgeGraph() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [selectedNode, setSelectedNode] = useState<string | undefined>(undefined)
   const [graphData, setGraphData] = useState<any>(null)
-
+  const [wikidataDesc, setWikidataDesc] = useState<string | null>(null);  // 정인 wikidata 불러오기 추가
   // 데이터셋 버튼 핸들러 (각 버튼마다 파일명 코드에서 지정)
   const [activeDataset, setActiveDataset] = useState('전체.json');
   const datasetFiles = [
@@ -57,6 +57,24 @@ export default function KnowledgeGraph() {
       .map((k) => nodeMap.get(k))
       .filter(Boolean)
   }
+  //  정인 wikidata 불러오기 추가
+  useEffect(() => {
+    if (!nodeInfo || !nodeInfo.uri || !nodeInfo.uri.startsWith("https://www.wikidata.org/wiki/")) {
+      setWikidataDesc(null);
+      return;
+    }
+    const qid = nodeInfo.uri.split("/").pop();
+    fetch(`https://www.wikidata.org/wiki/Special:EntityData/${qid}.json`)
+      .then(res => res.json())
+      .then(data => {
+        const desc = data.entities?.[qid]?.descriptions?.ko?.value
+                  || data.entities?.[qid]?.descriptions?.en?.value
+                  || null;
+        setWikidataDesc(desc);
+      })
+      .catch(() => setWikidataDesc(null));
+  }, [nodeInfo]);
+  // 여기까지가 정인 추가
 
   // 주요 label 매핑
   const LABEL_MAP: Record<string, string> = {
@@ -127,25 +145,32 @@ export default function KnowledgeGraph() {
       </div>
     ));
   }
-  function renderFixedInfo(attr: any) {
+  function renderFixedInfo(attr: any) {  // 정인 수정 
     if (!attr) return null;
     return (
       <div className="space-y-1">
         {FIXED_LABELS.map(({ label, keys }) => {
           const value = keys.map(k => attr[k]).find(v => !!v);
           return (
-            <div key={label} className="flex justify-between text-black">
+            <div key={label} className="flex flex-col text-black">
               <span className="font-medium">{label}</span>
               <span className="ml-2">
-                {label === 'URI' && value ? (   // URI a태그 달았음 수정5
-                  <a
-                    href={value}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-blue-600 underline break-all"
-                  >
-                    {value}
-                  </a>
+                {label === 'URI' && value ? (
+                  <div className="space-y-1">
+                    <a
+                      href={value}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-600 underline break-all"
+                    >
+                      {value}
+                    </a>
+                    {wikidataDesc && (
+                      <p className="text-sm text-gray-700 whitespace-pre-wrap mt-1">
+                        설명: {wikidataDesc}
+                      </p>
+                    )}
+                  </div>
                 ) : (
                   value || <span className="text-gray-400">정보 없음</span>
                 )}
@@ -155,7 +180,8 @@ export default function KnowledgeGraph() {
         })}
       </div>
     );
-  }
+  } // 여기까지가 정인 수정
+
   // 관계 정보(이웃 노드)에서 이름만 보이게 렌더링
   function renderNeighborInfo(neighborInfos: any[]) {
     if (!neighborInfos || neighborInfos.length === 0) return null;
