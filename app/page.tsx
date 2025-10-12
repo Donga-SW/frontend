@@ -10,6 +10,9 @@ import dynamic from "next/dynamic";
 import { ArrowRight } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useTranslation } from "@/contexts/TranslationContext";
+import { LoadingOverlay } from "@/components/ui/loading";
+import { ErrorOverlay } from "@/components/ui/error";
+import { useState, useEffect } from "react";
 
 // 클라이언트 컴포넌트를 불러오는 코드
 const StepperSection = dynamic(() => import("@/components/stepper-section"), {
@@ -17,7 +20,10 @@ const StepperSection = dynamic(() => import("@/components/stepper-section"), {
   loading: () => (
     <div className="py-20 px-4 bg-black">
       <div className="max-w-6xl mx-auto text-center">
-        <p className="text-gray-400">스텝퍼 로딩 중...</p>
+        <div className="flex flex-col items-center">
+          <div className="w-8 h-8 border-2 border-gray-600 border-t-white rounded-full animate-spin mb-4"></div>
+          <p className="text-white/80 font-medium">스텝퍼 로딩 중...</p>
+        </div>
       </div>
     </div>
   ),
@@ -26,6 +32,17 @@ const StepperSection = dynamic(() => import("@/components/stepper-section"), {
 export default function Home() {
   const router = useRouter();
   const { translate } = useTranslation();
+  const [isPageLoading, setIsPageLoading] = useState(true);
+  const [pageError, setPageError] = useState<string | null>(null);
+
+  // 페이지 로딩 시뮬레이션
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsPageLoading(false);
+    }, 1000);
+
+    return () => clearTimeout(timer);
+  }, []);
 
   const steps = [
     {
@@ -73,7 +90,10 @@ export default function Home() {
     <div className="flex flex-col min-h-screen bg-black text-white">
       <Header />
 
-      {/* 섹션 01 - 메인 */}
+      {/* 로딩 중일 때는 콘텐츠 숨김 */}
+      {!isPageLoading && (
+        <>
+          {/* 섹션 01 - 메인 */}
       <section className="snap-start relative h-[calc(100vh-5rem)] flex items-center justify-center overflow-hidden">
         <div className="absolute inset-0 z-0">
           <Image
@@ -388,8 +408,23 @@ export default function Home() {
         </div>
       </section>
 
-      {/*footer */}
-      <Footer />
+          {/*footer */}
+          <Footer />
+        </>
+      )}
+
+      {/* 로딩 오버레이 */}
+      <LoadingOverlay 
+        isVisible={isPageLoading} 
+        message="페이지를 로딩하는 중..." 
+      />
+
+      {/* 에러 오버레이 */}
+      <ErrorOverlay
+        isVisible={!!pageError}
+        message={pageError || ""}
+        onDismiss={() => setPageError(null)}
+      />
     </div>
   );
 }
