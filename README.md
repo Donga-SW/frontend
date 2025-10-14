@@ -61,7 +61,7 @@ HiddenNode는 일제강점기 **판결문 속 인물·사건·장소 정보를 �
 
 ## 📦 GitHub 저장소
 
-- [🔗 HiddenNode 프론트엔드 GitHub 바로가기](https://github.com/dau-J/frontend-hiddennode.git)
+- [🔗 HiddenNode 프론트엔드 GitHub 바로가기]()
 
 ---
 
@@ -83,6 +83,7 @@ npm install -D @types/react @types/react-dom --legacy-peer-deps
 <br>[read to path requirements.txt](https://github.com/Donga-SW/frontend/blob/f60e1abe8a1d8cb0c9e554f25ea6aa347ccb7609/requirements.txt)
 
 복사해서 붙여넣기 하시면됩니다.
+
 
 
 
