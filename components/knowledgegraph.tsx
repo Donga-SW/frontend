@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { LoadingCard, LoadingSpinner } from "@/components/ui/loading"
 import { ErrorCard, ErrorMessage } from "@/components/ui/error"
 import GraphComponent from "@/components/graph"
+import ChatBot from "@/components/ChatBot";
 
 export default function KnowledgeGraph() {
   const [activeTab, setActiveTab] = useState<string>("설명사이드바")
@@ -15,6 +16,7 @@ export default function KnowledgeGraph() {
   const [graphData, setGraphData] = useState<any>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [wikidataDesc, setWikidataDesc] = useState<string | null>(null)  // 정인 wikidata 불러오기 추가
 
   // 데이터셋 버튼 핸들러 (각 버튼마다 파일명 코드에서 지정)
   const [activeDataset, setActiveDataset] = useState('전체.json');
@@ -76,6 +78,41 @@ export default function KnowledgeGraph() {
 
     loadData();
   }, [activeDataset]);
+
+  // 노드가 선택되면 사이드바 자동 오픈
+  useEffect(() => {
+    if (selectedNode) setSidebarOpen(true);
+  }, [selectedNode]);
+
+  //  정인 wikidata 불러오기 추가
+  useEffect(() => {
+    if (!graphData || !selectedNode) {
+      setWikidataDesc(null);
+      return;
+    }
+    
+    // nodeInfo 계산
+    const nodeMap = new Map(
+      graphData.nodes.map((n: any) => [n.key, n.attributes])
+    );
+    const nodeInfo: any = nodeMap.get(selectedNode);
+    
+    if (!nodeInfo || !nodeInfo.uri || !nodeInfo.uri.startsWith("https://www.wikidata.org/wiki/")) {
+      setWikidataDesc(null);
+      return;
+    }
+    const qid = nodeInfo.uri.split("/").pop();
+    fetch(`https://www.wikidata.org/wiki/Special:EntityData/${qid}.json`)
+      .then(res => res.json())
+      .then(data => {
+        const desc = data.entities?.[qid]?.descriptions?.ko?.value
+                  || data.entities?.[qid]?.descriptions?.en?.value
+                  || null;
+        setWikidataDesc(desc);
+      })
+      .catch(() => setWikidataDesc(null));
+  }, [graphData, selectedNode]);
+  // 여기까지가 정인 추가
 
   const toggleSidebar = () => {
     setSidebarOpen(!sidebarOpen)
@@ -269,25 +306,38 @@ export default function KnowledgeGraph() {
       </div>
     ));
   }
-  function renderFixedInfo(attr: any) {
+  function renderFixedInfo(attr: any) {  // 정인 수정 
     if (!attr) return null;
     return (
       <div className="space-y-1">
         {FIXED_LABELS.map(({ label, keys }) => {
           const value = keys.map(k => attr[k]).find(v => !!v);
           return (
-            <div key={label} className="flex justify-between text-black">
+            <div key={label} className="flex flex-col text-black">
               <span className="font-medium">{label}</span>
               <span className="ml-2">
-                {label === 'URI' && value ? (   // URI a태그 달았음 수정5
-                  <a
-                    href={value}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-blue-600 underline break-all"
-                  >
-                    {value}
-                  </a>
+                {label === 'URI' && value ? (
+                  <div className="space-y-1">
+                    <a
+                      href={value}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-600 underline break-all"
+                    >
+                      {value}
+                    </a>
+                      {wikidataDesc && (
+                        <>
+                          <p className="text-sm text-gray-700 whitespace-pre-wrap mt-1">
+                            설명: {wikidataDesc}
+                          </p>
+                          <p className="text-gray-500 text-xs">
+                            <br></br>
+                            ※ 위 정보는 위키데이터로부터 자동 수집된 요약입니다.
+                          </p>
+                        </>
+                      )}
+                  </div>
                 ) : (
                   value || <span className="text-gray-400">정보 없음</span>
                 )}
@@ -297,7 +347,7 @@ export default function KnowledgeGraph() {
         })}
       </div>
     );
-  }
+  } // 여기까지가 정인 수정
   // 관계 정보(이웃 노드)에서 이름만 보이게 렌더링
   function renderNeighborInfo(neighborInfos: any[]) {
     if (!neighborInfos || neighborInfos.length === 0) return null;
@@ -331,10 +381,6 @@ export default function KnowledgeGraph() {
 
   // 노드 정보 렌더링
   let nodeInfoBlock = null;
-  useEffect(() => {
-    // 노드가 선택되면 사이드바 자동 오픈
-    if (selectedNode) setSidebarOpen(true);
-  }, [selectedNode]);
   if (nodeInfo) {
     const mainInfo = extractMainInfo(nodeInfo);
     nodeInfoBlock = (
@@ -570,6 +616,7 @@ export default function KnowledgeGraph() {
             </button>
           </div>
         </div>
+        <ChatBot />
       </div>
     </div>
   )
