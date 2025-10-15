@@ -1,7 +1,14 @@
 "use client";
+import { useState, useEffect } from "react";
 
 const ChatBot = () => {
-  if (typeof window === "undefined") return null;
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted) return null;
 
   return (
     <div
